@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+HEAD
 This is a discord bot to run a bracket and create private channels for each matchup"
 =======
 This is a discord bot to run a bracket and create private channels for each matchup
