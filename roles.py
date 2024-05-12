@@ -8,6 +8,9 @@ def is_mod(guild, user_id):
         mod_role = discord.utils.get(guild.roles, name="mod")
         return mod_role in member.roles
     return False
+def is_mger(ctx):
+    mger_role = discord.utils.get(ctx.guild.roles, name="mger")
+    return mger_role in ctx.author.roles
 
 roles_id = 1238924147971719292
 
@@ -15,6 +18,7 @@ roles_id = 1238924147971719292
 # be assigned the corresponding role.
 def setup(client):
     @client.event
+    @commands.check(is_mger)
     async def on_raw_reaction_add(payload):
         message_id = payload.message_id
         if message_id == roles_id:
@@ -39,9 +43,8 @@ def setup(client):
                     print("Done.")
             else:
                 print("Role not found.")
-
-
     @client.event
+    @commands.check(is_mger)
     async def on_raw_reaction_remove(payload):
         message_id = payload.message_id
         if message_id == roles_id:

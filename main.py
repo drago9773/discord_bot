@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 
 import bot_commands
+import user_commands
 import roles
 
 intents = discord.Intents.all()
@@ -12,7 +13,7 @@ intents.messages = True  # Enable message content intent
 client = commands.Bot(command_prefix='!', intents=intents)
 
 # gg 
-token = "your token here"
+token = "MTIxNzcxMzAxMzc5Mjk2NDYyOA.G8LGk6.jEb3tsLxJ8oN7rcfS9tKMLlkAmpxrTThWkhXyY"
 
 @client.event
 async def on_ready():

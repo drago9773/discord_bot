@@ -40,15 +40,7 @@ def remove_role_from_user(user, role_name):
 
 # Global variables
 double_elim = True
-category_name = "MATCHES"
 bracket_usernames = []
-seed_members_life = []
-winner_seeds = []
-out = []
-matchup_lower = []
-matchup_upper = []
-leftovers = []
-round_num = 1
 space_add = 25 # num spaces between team name and participants in signups.txt
 role = 'Cup 3'
 
