@@ -9,22 +9,26 @@ def is_mod(guild, user_id):
         return mod_role in member.roles
     return False
 
+roles_id = 1238924147971719292
+
 # Based on the message ID, if the user reacts to a message they can
 # be assigned the corresponding role.
 def setup(client):
     @client.event
     async def on_raw_reaction_add(payload):
         message_id = payload.message_id
-        if message_id == 1224120374422143016:
+        if message_id == roles_id:
             guild = client.get_guild(payload.guild_id)
-            is_user_mod = is_mod(guild, payload.user_id)  # Call is_mod function to check if the user is a moderator
             
-            if payload.emoji.name == 'mge' and is_user_mod:
-                print("mger")
-                role = discord.utils.get(guild.roles, name='mger')  
-            elif payload.emoji.name == 'heart':
+            if payload.emoji.name == '1v1':
+                print("1v1")
+                role = discord.utils.get(guild.roles, name='1v1')  
+            elif payload.emoji.name == 'EU':
                 print("test")
-                role = discord.utils.get(guild.roles, name='test') 
+                role = discord.utils.get(guild.roles, name='EU') 
+            elif payload.emoji.name == 'SA':
+                print("test")
+                role = discord.utils.get(guild.roles, name='SA') 
             else:
                 role = discord.utils.get(guild.roles, name=payload.emoji.name) 
 
@@ -33,8 +37,6 @@ def setup(client):
                 if member is not None:
                     await member.add_roles(role)
                     print("Done.")
-            elif not is_user_mod:
-                print("No permissions.")
             else:
                 print("Role not found.")
 
@@ -42,15 +44,18 @@ def setup(client):
     @client.event
     async def on_raw_reaction_remove(payload):
         message_id = payload.message_id
-        if message_id == 1224120374422143016:
+        if message_id == roles_id:
             guild = client.get_guild(payload.guild_id)
             is_user_mod = is_mod(guild, payload.user_id)  # Call is_mod function to check if the user is a moderator
-            if payload.emoji.name == 'mge' and is_user_mod:
-                print("mger")
-                role = discord.utils.get(guild.roles, name='mger')  
-            elif payload.emoji.name == 'heart':
-                print("test")
-                role = discord.utils.get(guild.roles, name='test') 
+            if payload.emoji.name == '1v1':
+                print("1v1")
+                role = discord.utils.get(guild.roles, name='1v1')  
+            elif payload.emoji.name == 'EU':
+                print("EU")
+                role = discord.utils.get(guild.roles, name='EU') 
+            elif payload.emoji.name == 'SA':
+                print("SA")
+                role = discord.utils.get(guild.roles, name='SA') 
             else:
                 role = discord.utils.get(guild.roles, name=payload.emoji.name) 
 
