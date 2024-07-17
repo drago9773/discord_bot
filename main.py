@@ -8,7 +8,7 @@ import roles
 intents = discord.Intents.all()
 intents.guilds = True
 intents.members = True
-intents.messages = True  # Enable message content intent
+intents.messages = True
 
 client = commands.Bot(command_prefix='!', intents=intents)
 

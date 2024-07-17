@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 # ...
 def scrape_bracket(client):
     # url = "https://brackethq.com/b/8lovb/"
-    url = "https://brackethq.com/b/f2mzb/"
+    url = "https://brackethq.com/b/6dy5b/"
     html = requests.get(url)
 
     # Write the HTML content to a file

@@ -94,7 +94,6 @@ def categorize_teams(seed_members_life, double_elim):
 def arrange_seeds(seeding, teams, num_participants):
     num_teams_upper = len(teams)
     og_seeds_two = seeding.copy()
-
     # Update each seed value based on the number of teams in the upper bracket
     for i, seed in enumerate(seeding):
         remaining_teams = num_participants
@@ -115,27 +114,21 @@ def arrange_seeds(seeding, teams, num_participants):
 
     # Reorder the original seeds list using the sorted indices
     og_seeds_two = [og_seeds_two[i] for i in sorted_indices]
-
     # Create a dictionary to map original seeds to modified seeds
     mapping_upper = dict(zip(og_seeds_two, seeding))
-
     # Rearrange the teams based on the mapping of seeds
     teams.sort(key=lambda x: mapping_upper[x[0]])
-
     # Extract seeds and members for upper bracket channel creation
     upper_seeds = []
     matchup_upper = []
     for i in range(len(teams) // 2):
         seed1 = og_seeds_two[i]  # Get seed1
         seed2 = og_seeds_two[len(og_seeds_two) - i - 1]  # Get seed2
-
         members1 = teams[i][1]
         members2 = teams[len(teams) - i - 1][1]
-
         upper_seeds.append((seed1, seed2))
         matchup_upper.append((i+1, members1))
         matchup_upper.append((i+1, members2))
-
     return seeding, teams, upper_seeds, matchup_upper
 
 # THIS FUNCTION took awhile to figure out. This calculates the lower bracket
@@ -166,6 +159,7 @@ def lower_bracket_next_round(matchup_lower, matchup_upper, winner_seeds, num_rou
     # print("Upper bracket losers: ", loser_names)
     # print("Lower bracket winners: ", winner_names)
     if winner_names:
+        
         if x == 8 and num_splits % 2 == 1:
             print("x == 8, % 2 == 1")
             for i in range(x // 2):
@@ -211,7 +205,7 @@ def lower_bracket_next_round(matchup_lower, matchup_upper, winner_seeds, num_rou
 
 # Global variables
 double_elim = True
-category_name = "MATCHES"
+category_name = "matches"
 bracket_usernames = []
 seed_members_life = []
 winner_seeds = []
@@ -409,7 +403,7 @@ def setup(client):
         num_seeds = len(seed_members_life)
 
         print("Seed_members_life: ", seed_members_life)
-        # Retrieve the category named "CUP #3"
+        # Retrieve the category named "matches"
         category = discord.utils.get(guild.categories, name=category_name)
         
         if not category:
@@ -459,7 +453,6 @@ def setup(client):
         global category_name
         
         guild = ctx.guild
-
         round_num += 1
 
         # Retrieve the category named "CUP #3"
@@ -472,7 +465,6 @@ def setup(client):
         if not winner_seeds:
             await ctx.send("No winners from the previous round to create channels for.")
             return
-        
         # Calculate loser seeds by taking the teams that did not win their matchup. When
         # a team types !win they are put into 'winner_seeds'
         loser_seeds = [name for name in seed_members_life if name not in winner_seeds]
@@ -480,13 +472,11 @@ def setup(client):
 
         num_participants = len(seed_members_life)
         num_rounds = calculate_rounds(num_participants)
-        
         if(double_elim):
             # Split up 'seed_members_life' which stores seeds/members/lifes of each team into 
             # seeds/members for 2 life teams and 1 life teams
             two_life_teams, one_life_teams, two_life_seeds, one_life_seeds = categorize_teams(seed_members_life, double_elim)
             num_teams_upper = len(two_life_teams)
-
             # If it's the first round, arrange seeds lowest to highest for upper bracket
             # Otherwise do specialized seeding based on which round. See 'lower_bracket_next_round'
             num_splits = int(num_rounds - math.log2(num_teams_upper)) - 1
@@ -494,17 +484,22 @@ def setup(client):
                 one_life_seeds, one_life_teams, lower_seeds, matchup_lower = arrange_seeds(one_life_seeds, one_life_teams, num_participants)        
             else:
                 matchup_lower, leftovers = lower_bracket_next_round(matchup_lower, matchup_upper, winner_seeds, num_rounds, num_splits, leftovers)
-
+            print(1)
             # Re-arrange lower bracket based on true seeding. This only needs to be done for the first round of lower bracke
             two_life_seeds, two_life_teams, upper_seeds, matchup_upper = arrange_seeds(two_life_seeds, two_life_teams, num_participants)
-            await create_channels(ctx, guild, category, upper_seeds, matchup_upper, round_num, 1, double_elim)
-            
+            print(2)
+            print(upper_seeds)
+            print(matchup_upper)
+            print(round_num)
+            await create_channels(ctx, guild, category, upper_seeds, matchup_upper, round_num, 1)
+            print(3)
             # Create channels for each matchup
             if(num_splits == 0):
-                await create_channels(ctx, guild, category, lower_seeds, matchup_lower, round_num, 0, double_elim)
+                print(4)
+                await create_channels(ctx, guild, category, lower_seeds, matchup_lower, round_num, 0)
             else:
+                print(5)
                 await create_lower_channels(ctx, guild, category, seed_members_life, matchup_lower, round_num)
- 
         # If single ELIM
         else:
             # Split up 'seed_members_life' which stores seeds/members/lifes of each team into seeds and teams 
@@ -514,18 +509,21 @@ def setup(client):
             single_elim_seeds, single_elim_teams, seeds, matchup = arrange_seeds(single_elim_seeds, single_elim_teams, num_participants)
 
             # Create channels for each matchup
-            await create_channels(ctx, guild, category, seeds, matchup, round_num, 1, double_elim)
+            await create_channels(ctx, guild, category, seeds, matchup, round_num, 1)
 
         winner_seeds = []  # Reset winner_seeds for the next round
 
     async def create_channels(ctx, guild, category, seeding, matchups, round_num, if_upper): 
+        print(0.20)
         for i in range(len(seeding)):
             seed1, seed2 = seeding[i]
+            print(0.21)
             print("Seed Pair: ", seed1, seed2)
             team1, team2 = matchups[2*i][1], matchups[2*i+1][1]
+            print(0.22)
             print("Members: ", team1, team2)
             significant_players_present = any(member_name in ['userjebus', 'cormiez'] for member_name in team1 + team2)
-
+            print(0.23)
             if if_upper:
                 channel_name = f"Seed{seed1}_vs_Seed{seed2}_UpperRound{round_num}"
             else:

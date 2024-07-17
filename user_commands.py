@@ -144,7 +144,7 @@ def setup(client):
             # Assign 'Cup 3' role to successfully signed up users
             role_assign = discord.utils.get(ctx.guild.roles, name=role)
             for member in members:
-                await member.send(f"You have been signed up by {ctx.author.display_name} to the team '{team_name}' for the 2v2 MGE cup.\nPlease pay the entry fee of 1 weapon PER PLAYER (of either vintage/genuine/strange quality) before the cup begins to Neptune and include your discord name.\nOne player may pay for both members if they want to. \nType !remove to remove your team from registration and contact Neptune if you payed and want your weapon back.\nNEPTUNE TRADE URL: https://steamcommunity.com/tradeoffer/new/?partner=122391808&token=3lTK-D1n")
+                # await member.send(f"You have been signed up by {ctx.author.display_name} to the team '{team_name}' for the 2v2 MGE cup.\nPlease pay the entry fee of 1 weapon PER PLAYER (of either vintage/genuine/strange quality) before the cup begins to Neptune and include your discord name.\nOne player may pay for both members if they want to. \nType !remove to remove your team from registration and contact Neptune if you payed and want your weapon back.\nNEPTUNE TRADE URL: https://steamcommunity.com/tradeoffer/new/?partner=122391808&token=3lTK-D1n")
                 await member.add_roles(role_assign)
             
         except commands.CheckFailure:
