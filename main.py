@@ -13,7 +13,7 @@ intents.messages = True
 client = commands.Bot(command_prefix='!', intents=intents)
 
 # gg 
-token = "MTIxNzcxMzAxMzc5Mjk2NDYyOA.G8LGk6.jEb3tsLxJ8oN7rcfS9tKMLlkAmpxrTThWkhXyY"
+token = ""
 
 @client.event
 async def on_ready():
