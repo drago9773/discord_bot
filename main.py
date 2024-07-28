@@ -13,7 +13,9 @@ intents.messages = True
 client = commands.Bot(command_prefix='!', intents=intents)
 
 # gg 
-token = ""
+token_path = 'C:\\Users\\jonat\\Documents\\token.txt'
+with open(token_path, 'r') as file:
+    token = file.read().strip()
 
 @client.event
 async def on_ready():

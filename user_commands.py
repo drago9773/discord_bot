@@ -4,17 +4,7 @@ import webscrape
 import math
 from discord.ext import commands
 
-# These functions check if the user running a command has the given
-# role associated (is_mod checks if the user has 'mod' role)
-def is_mod(ctx):
-    mod_role = discord.utils.get(ctx.guild.roles, name="mod")
-    return mod_role in ctx.author.roles
-def is_mger(ctx):
-    mger_role = discord.utils.get(ctx.guild.roles, name="mger")
-    return mger_role in ctx.author.roles
-def is_cup_3(ctx):
-    mger_role = discord.utils.get(ctx.guild.roles, name="mger")
-    return mger_role in ctx.author.roles
+import perms
 
 # This function saves the inputs from !add when teams sign up
 # to a .txt file
@@ -57,7 +47,7 @@ def setup(client):
     # commands.cooldown(# command uses, # seconds cooldown, user type)
     @commands.cooldown(3, 60, commands.BucketType.user)
     @client.command()
-    @commands.check(is_mger)
+    @commands.check(perms.is_mger)
     async def help(ctx):
         embed = discord.Embed(title="Bot Commands", description="List of available commands:", color=0x0000ff)
         embed.add_field(name="!add @user @user 'Team name", value="Sign up for the cup", inline=True)
@@ -66,102 +56,101 @@ def setup(client):
         embed.add_field(name="!whitelist", value="Display whitelist for the cup", inline=False)
         embed.add_field(name="!maps", value="Display maps for the cup", inline=False)
         # embed.add_field(name="!sponsors", value="", inline=False)
-        # Add more fields as needed for other commands
         
         await ctx.send(embed=embed)
 
     # Display maps
     @commands.cooldown(2, 30, commands.BucketType.user)
     @client.command()
-    @commands.check(is_mger)
+    @commands.check(perms.is_mger)
     async def maps(ctx):
-        await ctx.send("Logjam mid\nProcess 2nd\nReconner mid\nMetalworks mid\nGranary last\nProcess mid\nProduct mid\nBadlands mid")
+        await ctx.send("Sunshine middle\nProcess Spire\nGullywash 2nd\nLogjam middle\nMetalworks middle\nReckoner middle\nProduct middle\nBadlands middle\nProcess middle\n")
 
     # Display whitelist
     @commands.cooldown(2, 30, commands.BucketType.user)
     @client.command()
-    @commands.check(is_mger)
+    @commands.check(perms.is_mger)
     async def whitelist(ctx):
         await ctx.send("https://whitelist.tf/14451")
 
     # Display servers (constantly updating)
     @commands.cooldown(3, 30, commands.BucketType.user)
     @client.command()
-    @commands.check(is_cup_3)
+    @commands.check(perms.is_mod)
     async def servers(ctx):
-        await ctx.send("Chi1: connect 169.254.43.55:57128; password 'sfgdsA2ioYIga5'\nChi2: connect 169.254.94.78:12904; password 'A2ioyga21DYIga5'\nChi3: connect 169.254.94.189:38384; password 'ffaA2ioYIga5'\nChi4: connect 169.254.117.163:14496; password 'A2ioyga21DYIga5'\nDal1: connect 169.254.14.31:42936; password 'fauihfgaret'\nDal2: connect 169.254.119.128:62624; password 'eawoityuaa1231a'")
+        await ctx.send("")
 
     # Signup for the cup. Entries are saved in signups.txt
     # ex: !add @user1 @user2 'teamname'
-    @client.command()
-    @commands.check(is_mger)
-    async def add(ctx, *args):
-        try:
-            # Check if the command is invoked in the #team-registration channel
-            if ctx.channel.name != 'team-registration':
-               raise commands.BadArgument("You can only use this command in the #team-registration channel.")
-                    # Check if both mentioned members have the 'mger' role
+    # @client.command()
+    # @commands.check(perms.is_mger)
+    # async def add(ctx, *args):
+    #     try:
+    #         # Check if the command is invoked in the #team-registration channel
+    #         if ctx.channel.name != 'team-registration':
+    #            raise commands.BadArgument("You can only use this command in the #team-registration channel.")
+    #                 # Check if both mentioned members have the 'mger' role
 
-            # Check if both mentioned members have the 'mger' role
-            mger_role = discord.utils.get(ctx.guild.roles, name="mger")
-            if mger_role is None:
-                raise commands.BadArgument("Role 'mger' not found.")
+    #         # Check if both mentioned members have the 'mger' role
+    #         mger_role = discord.utils.get(ctx.guild.roles, name="mger")
+    #         if mger_role is None:
+    #             raise commands.BadArgument("Role 'mger' not found.")
         
-            if len(args) < 3:
-                raise commands.BadArgument("Please provide two mentions and a team name.\nExample: !add @user @user Team Name")
+    #         if len(args) < 3:
+    #             raise commands.BadArgument("Please provide two mentions and a team name.\nExample: !add @user @user Team Name")
             
-            # Extract mentions and join the remaining arguments into a single string as the team name
-            mentions = args[:2]
-            team_name = ' '.join(args[2:])
+    #         # Extract mentions and join the remaining arguments into a single string as the team name
+    #         mentions = args[:2]
+    #         team_name = ' '.join(args[2:])
             
-            # Check if the team name is not over 20 characters long
-            if len(team_name) > 25:
-                raise commands.BadArgument("Team name must be 25 characters or less.")
+    #         # Check if the team name is not over 20 characters long
+    #         if len(team_name) > 25:
+    #             raise commands.BadArgument("Team name must be 25 characters or less.")
             
-            # Check if each mention is a valid member
-            members = []
-            for mention in mentions:
-                member = discord.utils.get(ctx.guild.members, mention=mention)
-                if member is None:
-                    raise commands.MemberNotFound(mention)
-                if mger_role not in member.roles:
-                    raise commands.BadArgument(f"{member.display_name} needs to be verified and have 'mger' role.")
-                members.append(member)
+    #         # Check if each mention is a valid member
+    #         members = []
+    #         for mention in mentions:
+    #             member = discord.utils.get(ctx.guild.members, mention=mention)
+    #             if member is None:
+    #                 raise commands.MemberNotFound(mention)
+    #             if mger_role not in member.roles:
+    #                 raise commands.BadArgument(f"{member.display_name} needs to be verified and have 'mger' role.")
+    #             members.append(member)
             
-            # Check if the person running the command is one of the mentioned members
-            if ctx.author not in members:
-                raise commands.BadArgument("You must be one of the mentioned members.")
+    #         # Check if the person running the command is one of the mentioned members
+    #         if ctx.author not in members:
+    #             raise commands.BadArgument("You must be one of the mentioned members.")
             
-            # Check if ctx.author.name already exists in signups.txt
-            with open('signups.txt', 'r') as file:
-                if ctx.author.name in file.read():
-                    raise commands.BadArgument("You are already signed up")
+    #         # Check if ctx.author.name already exists in signups.txt
+    #         with open('signups.txt', 'r') as file:
+    #             if ctx.author.name in file.read():
+    #                 raise commands.BadArgument("You are already signed up")
             
-            # Save mentions and team name to file
-            save_mentions(members, team_name)
-            # await ctx.author.send("Sign-up successful!")
+    #         # Save mentions and team name to file
+    #         save_mentions(members, team_name)
+    #         # await ctx.author.send("Sign-up successful!")
 
-            # Assign 'Cup 3' role to successfully signed up users
-            role_assign = discord.utils.get(ctx.guild.roles, name=role)
-            for member in members:
-                # await member.send(f"You have been signed up by {ctx.author.display_name} to the team '{team_name}' for the 2v2 MGE cup.\nPlease pay the entry fee of 1 weapon PER PLAYER (of either vintage/genuine/strange quality) before the cup begins to Neptune and include your discord name.\nOne player may pay for both members if they want to. \nType !remove to remove your team from registration and contact Neptune if you payed and want your weapon back.\nNEPTUNE TRADE URL: https://steamcommunity.com/tradeoffer/new/?partner=122391808&token=3lTK-D1n")
-                await member.add_roles(role_assign)
+    #         # Assign 'Cup 3' role to successfully signed up users
+    #         role_assign = discord.utils.get(ctx.guild.roles, name=role)
+    #         for member in members:
+    #             # await member.send(f"You have been signed up by {ctx.author.display_name} to the team '{team_name}' for the 2v2 MGE cup.\nPlease pay the entry fee of 1 weapon PER PLAYER (of either vintage/genuine/strange quality) before the cup begins to Neptune and include your discord name.\nOne player may pay for both members if they want to. \nType !remove to remove your team from registration and contact Neptune if you payed and want your weapon back.\nNEPTUNE TRADE URL: https://steamcommunity.com/tradeoffer/new/?partner=122391808&token=3lTK-D1n")
+    #             await member.add_roles(role_assign)
             
-        except commands.CheckFailure:
-            command_used = ctx.message.content
-            await ctx.author.send(f"You can only use this command in the #team-registration channel.\n")
-        except commands.MemberNotFound as e:
-            error_msg = f"Member not found: {e.argument}"
-            await ctx.author.send(error_msg)  # Send a personal message to the command invoker
-            await ctx.message.delete()  # Delete the incorrect signup message
-        except commands.BadArgument as e:
-            command_used = ctx.message.content
-            await ctx.author.send(f"{str(e)}\n")
-            await ctx.message.delete()  # Delete the incorrect signup message
+    #     except commands.CheckFailure:
+    #         command_used = ctx.message.content
+    #         await ctx.author.send(f"You can only use this command in the #team-registration channel.\n")
+    #     except commands.MemberNotFound as e:
+    #         error_msg = f"Member not found: {e.argument}"
+    #         await ctx.author.send(error_msg)  # Send a personal message to the command invoker
+    #         await ctx.message.delete()  # Delete the incorrect signup message
+    #     except commands.BadArgument as e:
+    #         command_used = ctx.message.content
+    #         await ctx.author.send(f"{str(e)}\n")
+    #         await ctx.message.delete()  # Delete the incorrect signup message
 
     # Remove team from signups. Either member can use this command
     @client.command()
-    @commands.check(is_mger)
+    @commands.check(perms.is_mger)
     async def remove(ctx):
         try:
             # Check if the command is invoked in the #team-registration channel
@@ -211,7 +200,7 @@ def setup(client):
     # Display teams in signups.txt
     @commands.cooldown(2, 180, commands.BucketType.user)
     @client.command()
-    @commands.check(is_mger)
+    @commands.check(perms.is_mger)
     async def teams(ctx):
         try:
             filename = 'signups.txt'
@@ -248,7 +237,7 @@ def setup(client):
 
     # For testing
     @client.command()
-    @commands.check(is_mod)
+    @commands.check(perms.is_mod)
     async def check_user(ctx):
         user_id = ctx.author.id
         username = ctx.author.name  # You can also use ctx.author.display_name to get the nickname if available
@@ -257,6 +246,11 @@ def setup(client):
     # Display sponsors
     @commands.cooldown(2, 600, commands.BucketType.user)
     @client.command()
-    @commands.check(is_mod)
     async def sponsors(ctx):
-        await ctx.send("Mannco with 60 keys\nJebus with 50 keys\nOther donor with 60 keys")
+        await ctx.send("Dolphinrider with 320 keys\nMannco with 60 keys")
+
+    # Display sponsors
+    @commands.cooldown(2, 600, commands.BucketType.user)
+    @client.command()
+    async def EU(ctx):
+        await ctx.send("**NL:** `connect bolus.fakkelbrigade.eu:27055; password 'OG4GHDtNPLLmeqn'`\n**GER1:** `connect monika.fakkelbrigade.eu:27065; password 'NSkMcTKHWwGzijs'`\n**GER2:** `connect monika.fakkelbrigade.eu:27035; password 'CY82fNYoWN2x'`\n**GER3:** `connect monika.fakkelbrigade.eu:27045; password '66eJGy9hjnrU'`\n**FRA1:** `connect elzas.fakkelbrigade.eu:27095; password 's0Y9Y4Q7bfqC'`\n**FRA2:** `connect elzas.fakkelbrigade.eu:27025; password 'mRxy8XTkYF0S'`\n**FRA3:** `connect elzas.fakkelbrigade.eu:27035; password 'eFDqZxMj72yH'`")

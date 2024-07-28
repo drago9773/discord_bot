@@ -4,23 +4,28 @@ import webscrape
 import math
 from discord.ext import commands
 
-# These functions check if the user running a command has the given
-# role associated (is_mod checks if the user has 'mod' role)
-def is_mod(ctx):
-    mod_role = discord.utils.get(ctx.guild.roles, name="mod")
-    return mod_role in ctx.author.roles
-def is_mger(ctx):
-    mger_role = discord.utils.get(ctx.guild.roles, name="mger")
-    return mger_role in ctx.author.roles
-def is_cup_3(ctx):
-    mger_role = discord.utils.get(ctx.guild.roles, name="mger")
-    return mger_role in ctx.author.roles
+import perms
 
 # This calculates how many total rounds will be in the bracket
 # given the total number of participants
 def calculate_rounds(num_participants):
     rounds = math.ceil(math.log2(num_participants))
     return rounds
+
+# Determine the group for each seed
+def get_seed_group(seed, group_range):
+    max_seed = 32
+    if(seed > max_seed):
+        seed = seed - 32
+    group = 1
+    current_range = group_range
+    
+    while current_range < max_seed:
+        if seed <= current_range:
+            return group
+        group += 1
+        current_range += group_range
+    return group  # Return the final group if the seed is within the last range
 
 # This function saves the inputs from !add when teams sign up
 # to a .txt file
@@ -48,14 +53,14 @@ def remove_role_from_user(user, role_name):
 # matchup. Only used for double elim and in the process of
 # generating the next round of matchups
 def subtract_life(seeds, loser_seeds):
-    for i in range(0, len(loser_seeds), 2):  # Iterate through loser_seeds with step size of 2
-        team1_names = loser_seeds[i][1]
-        team2_names = loser_seeds[i + 1][1] if i + 1 < len(loser_seeds) else None  # Check if there's a second team available
+    for team in loser_seeds:  # Iterate through loser_seeds one by one
+        team_names = team[1]
         for j, (seed_num, names, life) in enumerate(seeds):
-            if all(name in team1_names or name in team2_names for name in names):
+            if all(name in team_names for name in names):
                 if life > 0:  # Check if life is greater than 0
                     seeds[j] = (seed_num, names, life - 1)
     return seeds
+
 
 # Command to add a life back to a team
 def override_add_life(seeds, name):
@@ -84,7 +89,6 @@ def categorize_teams(seed_members_life, double_elim):
         one_life_seeds = [t[0] for t in one_life_teams]
         return two_life_teams, one_life_teams, two_life_seeds, one_life_seeds
     else:
-        print("2.5")
         single_elim_teams = [(t[0], t[1], t[2]) for t in seed_members_life if t[2] == 1]
         single_elim_seeds = [t[0] for t in single_elim_teams]
         return single_elim_teams, single_elim_seeds
@@ -131,15 +135,15 @@ def arrange_seeds(seeding, teams, num_participants):
         matchup_upper.append((i+1, members2))
     return seeding, teams, upper_seeds, matchup_upper
 
-# THIS FUNCTION took awhile to figure out. This calculates the lower bracket
-# matchups. Lower bracket does NOT just go low seed vs high seed, based on which
+# This calculates the lower bracket matchups. 
+# Lower bracket does NOT just go low seed vs high seed, based on which
 # round you are in the bracket there are set matches for which matchup plays
 # which matchup. 
-# *** THIS IS SET FOR 32 TEAMS and needs to be adjusted a little for different sizes ***
-def lower_bracket_next_round(matchup_lower, matchup_upper, winner_seeds, num_rounds, num_splits, leftovers=None):
+# *** THIS IS SET FOR 64 TEAMS and needs to be adjusted a little for different sizes ***
+def lower_bracket_next_round(matchup_lower, matchup_upper, winner_seeds, num_splits, leftovers=None, leftover_leftovers=None):
     loser_names = []
-    x = (2**((num_rounds-num_splits+1)//2)) * 2
-    print("Num rounds: ", num_rounds)
+    # x = (2**((num_rounds-num_splits+1)//2)) * 2
+
     # Iterate through each entry in matchup_upper
     for seed, names in matchup_upper:
         # Check if the names are not present in winner_seeds
@@ -155,14 +159,17 @@ def lower_bracket_next_round(matchup_lower, matchup_upper, winner_seeds, num_rou
             winner_names.append((seed, names))
 
     matchup = []
-    # loser_names.reverse()
-    # print("Upper bracket losers: ", loser_names)
-    # print("Lower bracket winners: ", winner_names)
+
+    print("test winner_names: ", winner_names)
+    print("test matchup_lower: ", matchup_lower)
+    print("test num_splits: ", num_splits)
+    print("test leftovers: ", leftovers)
+    print("test leftover_leftovers: ", leftover_leftovers)
+
     if winner_names:
-        
-        if x == 8 and num_splits % 2 == 1:
-            print("x == 8, % 2 == 1")
-            for i in range(x // 2):
+        if num_splits == 2:
+            print("num_splits == 2")
+            for i in range(8):
                 members = [
                     (2*i + 1, loser_names[2*i][1]),      # Matchup 1: Loser1 vs Winner2
                     (2*i + 1, winner_names[2*i + 1][1]), # Matchup 2: Loser1 vs Winner2
@@ -170,56 +177,118 @@ def lower_bracket_next_round(matchup_lower, matchup_upper, winner_seeds, num_rou
                     (2*i + 2, winner_names[2*i][1])      # Matchup 4: Loser2 vs Winner1
                 ]
                 matchup.extend(members)
-        elif x == 8 and num_splits % 2 == 0:
-            print("x == 8, % 2 == 0")
-            for i in range(x // 2):
+        elif num_splits == 3:
+            print("num_splits == 3")
+            for i in range(8):
                 members = [
                     (i + 1, winner_names[i][1]),
-                    (i + 1, winner_names[x-i-1][1]),
+                    (i + 1, winner_names[16-i-1][1]),
                 ]
                 matchup.extend(members)
-        elif x == 4 and num_splits % 2 == 1:
-            for i in range(x):
-                second_index = i+2
-                if i > 1:
-                    second_index = i-2
+        elif num_splits == 4:
+            print("num_splits == 4")
+            for i in range(8):
+                second_index = (i + 2) % 8  # Ensures wrapping around the list
+                
+                if i == 2 or i == 3 or i == 6 or i == 7:
+                    second_index = (i - 2 + 8) % 8  # Ensures wrapping around the list
                 members = [
                     (i + 1, winner_names[i][1]),
-                    (i + 1, leftovers[second_index][1])  
+                    (i + 1, leftovers[second_index][1])
                 ]
                 matchup.extend(members)
-        elif x == 4 and num_splits % 2 == 0:
-            for i in range(x // 2):
+        elif num_splits == 5:
+            print("num_splits == 5")
+            for i in range(4):
                 members = [
                     (i + 1, winner_names[i][1]),
-                    (i + 1, winner_names[x-i-1][1]),
+                    (i + 1, winner_names[8-i-1][1]),
                 ]
                 matchup.extend(members)
+            leftover_leftovers = leftovers
+
+        elif num_splits == 6:
+            print("num_splits == 6")
+            for i in range(4):
+                second_index = (i + 1) % 4
+                if i == 1 or i == 3:
+                    second_index = (i - 1 + 4) % 4
+                members = [
+                    (i + 1, winner_names[i][1]),
+                    (i + 1, leftover_leftovers[4-i - 1][1])
+                ]
+                matchup.extend(members)
+            leftover_leftovers = leftovers
+
+        elif num_splits == 7:
+            print("num_splits == 7")
+            for i in range(2):
+                members = [
+                    (i + 1, winner_names[i][1]),
+                    (i + 1, winner_names[4-i - 1][1]),
+                ]
+                matchup.extend(members)
+        elif num_splits == 8:
+            print("num_splits == 8")
+            for i in range(2):
+                second_index = 1
+                if i == 1:
+                    second_index = 0
+                print("Second index: ", second_index)
+                members = [
+                    (i + 1, winner_names[i][1]),
+                    (i + 1, leftover_leftovers[second_index][1])
+                ]
+                matchup.extend(members)
+            leftover_leftovers = leftovers
+        elif num_splits == 9:
+            print("num_splits == 9")
+            for i in range(1):
+                members = [
+                    (i + 1, winner_names[i][1]),
+                    (i + 1, winner_names[i+1][1])
+                ]
+                matchup.extend(members)
+        elif num_splits == 10:
+            print("num_splits == 10")
+            for i in range(1):
+                members = [
+                    (i + 1, winner_names[i][1]),
+                    (i + 1, leftover_leftovers[i][1])
+                ]
+                matchup.extend(members)
+        else:
+            print("ROUNDNUM OUT OF BOUNDS")
     else:
         print("No winner found yet.")
 
-    print("Lower prev matchups", matchup)
-    
-    leftovers = loser_names
-    return matchup, leftovers
+    if(num_splits == 7 or num_splits == 9):
+        print("lol")
+    else: 
+        leftovers = loser_names
+
+    return matchup, leftovers, leftover_leftovers
 
 # Global variables
 double_elim = True
-category_name = "matches"
 bracket_usernames = []
+category_name_upper = 'round_1'
+category_name_lower = 'round_1'
+grand_final_names = ""
 seed_members_life = []
 winner_seeds = []
 out = []
 matchup_lower = []
 matchup_upper = []
 leftovers = []
+leftover_leftovers = []
 round_num = 1
 space_add = 25 # num spaces between team name and participants in signups.txt
 role = 'Cup 3'
 
 def setup(client):
 
-    # Error handling for cooldown
+    # Cooldown error
     @client.event
     async def on_command_error(ctx, error):
         if isinstance(error, commands.CommandOnCooldown):
@@ -251,26 +320,41 @@ def setup(client):
     # 'ow' stands for override_win. I was using it so much I truncated it
     #  This lets a mod add another team to the winner seeds
     @client.command()
-    @commands.check(is_mod)
-    async def ow(ctx, member: discord.Member):
+    @commands.check(perms.is_helper)
+    async def ow(ctx, *, args):
         global winner_seeds
         global seed_members_life
 
-        # Check if the member provided belongs to any seed
-        for seed_info in seed_members_life:
-            seed = seed_info[0]  # Extract seed number
-            members = seed_info[1]  # Extract members from seed information
-            if member.name in members:
-                # Check if the seed is already in winner_seeds
+        seed_numbers = []
+
+        # Get seeds 
+        try:
+            # Split the argument by comma and strip any whitespace
+            seed_numbers = [int(seed.strip()) for seed in args.split(',')]
+        except ValueError:
+            await ctx.send(f"Invalid input. Please provide valid seed numbers separated by commas.")
+            return
+
+        added_seeds = []
+        already_in_bracket = []
+
+        # Add each seed number
+        for seed in seed_numbers:
+            seed_info = next((s for s in seed_members_life if s[0] == seed), None)
+            if seed_info:
                 if seed not in [item[0] for item in winner_seeds]:
-                    # Add the seed and its corresponding information to winner_seeds
                     winner_seeds.append(seed_info)
-                    await ctx.send(f"Seed {seed} and its members have been added to the winner bracket.")
-                    # print(winner_seeds)  # Print the winner seeds
+                    added_seeds.append(seed)
                 else:
-                    await ctx.send(f"Seed {seed} is already in the winner bracket.")
-                return
-        await ctx.send("The provided member is not part of any seed.")
+                    already_in_bracket.append(seed)
+            else:
+                await ctx.send(f"Seed {seed} not found.")
+        
+        # Add multiple seeds
+        if added_seeds:
+            await ctx.send(f"Seeds {', '.join(map(str, added_seeds))} and their members have been added to the winner bracket.")
+        if already_in_bracket:
+            await ctx.send(f"Seeds {', '.join(map(str, already_in_bracket))} are already in the winner bracket.")
 
     # This removes the user's team from the winner teams
     @client.command()
@@ -292,7 +376,7 @@ def setup(client):
 
     # This lets a mod remove a team from the winner teams
     @client.command()
-    @commands.check(is_mod)
+    @commands.check(perms.is_helper)
     async def override_lose(ctx, member: discord.Member):
         global winner_seeds
 
@@ -307,7 +391,7 @@ def setup(client):
                 return
         await ctx.send("The provided member is not part of any seed in the winner bracket.")
 
-    # Displays the teams that have won their matchup 
+    # Displays the teams that have won their matchup and waiting for next round
     @client.command()
     @commands.check(is_cup_3)
     async def display_winners(ctx):
@@ -320,42 +404,41 @@ def setup(client):
         # Formatting winner seeds for display
         message = "Winner Seeds:\n"
         for seed_info in winner_seeds:
-            seed = seed_info[0]  # Extract seed number
-            members = seed_info[1]  # Extract members
-            life = seed_info[2]  # Extract life value
+            seed = seed_info[0]  # seed number
+            members = seed_info[1]  # members
+            life = seed_info[2]  # life value
             message += f"Seed {seed}: {' '.join([member.mention if isinstance(member, discord.Member) else str(member) for member in members])} ({life} lifes)\n"
         
         await ctx.send(message)
 
     # Runs 'process_bracket' which webscrapes a bracket url
     @client.command()    
-    @commands.check(is_mod)
+    @commands.check(perms.is_mod)
     async def create_bracket(ctx):
-        global seed_members_life  # Access the global variable
+        global seed_members_life 
         seed_members_life = await _process_bracket(ctx, send_message=False)
         await ctx.send("Bracket created. Enter !bracket to display the bracket")
     async def _process_bracket(ctx, send_message=False):
-        global bracket_usernames  # Access the global variable
+        global bracket_usernames 
         global life
 
         life = 2 if double_elim else 1
 
         div_tags_with_class = webscrape.scrape_bracket(client)
 
-        # Initialize an empty message
         message = ""
         seed_members_life = []
 
         for i, tag in enumerate(div_tags_with_class, start=1):
-            input_tag = tag.find("input")  # Find the <input> tag within the <div> tag
+            input_tag = tag.find("input")  # <input> tag within the <div> tag
             name = i  # Set the name as "Seed #" where # is the index
-            value = input_tag["value"]  # Get the value of the "value" attribute
+            value = input_tag["value"]  # Get the value of the "value"
             
-            # Split value based on "/"
+            # Split names based on "/"
             usernames = value.split("/")
             seed_members = []
             
-            # Attempt to convert each username to a member object and get their ID
+            # Try to convert each username to a member object and get their ID
             for username in usernames:
                 try:
                     member = await commands.MemberConverter().convert(ctx, username)
@@ -369,7 +452,7 @@ def setup(client):
 
             message += f"{name}: {' '.join([f'{member.mention if isinstance(member, discord.Member) else member}' for member in seed_members])} ({life} lifes)\n"
 
-        # Send the accumulated message if needed
+        # If !bracket is ran, display bracket
         if send_message:
             await ctx.send(message)
 
@@ -377,7 +460,7 @@ def setup(client):
 
     # Displays current bracket seeds/members/lifes
     @client.command()
-    @commands.check(is_mod)
+    @commands.check(perms.is_mod)
     async def bracket(ctx):
         await _display_bracket(ctx)
     async def _display_bracket(ctx):
@@ -392,49 +475,110 @@ def setup(client):
 
     # Starts the 'tourney' and creates private channels for each round1 matchup
     @client.command()
-    @commands.check(is_mod)
+    @commands.check(perms.is_mod)
     async def start_bracket(ctx):
         global round_num
         global winner_seeds
-        global category_name
+        global category_name_upper
         global seed_members_life
+
+        category_name_upper = "upper_round_1"
 
         guild = ctx.guild
         num_seeds = len(seed_members_life)
 
-        print("Seed_members_life: ", seed_members_life)
-        # Retrieve the category named "matches"
-        category = discord.utils.get(guild.categories, name=category_name)
+        # Retrieve the category name
+        category = discord.utils.get(guild.categories, name=category_name_upper)
         
         if not category:
-            # If the category doesn't exist, you can handle it accordingly
-            await ctx.send(f"Category '{category_name}' not found.")
+            await ctx.send(f"Category '{category_name_upper}' not found.")
             return
         # Iterate over pairs of seeds
         for i in range(num_seeds // 2):
             # Get the seeds and members for the current pair
             seed1, members1, seed2, members2 = seed_members_life[i][0], seed_members_life[i][1], seed_members_life[num_seeds - i - 1][0], seed_members_life[num_seeds - i - 1][1]
-            significant_players_present = any(member_name in ['logannn1', 'botmode', '_jw'] for member_name in members1 + members2)
+            # significant_players_present = any(member_name in ['logannn1', 'botmode', '_jw'] for member_name in members1 + members2)
+            
             # Format the channel names
-            channel_name = f"Seed{seed1}_vs_Seed{seed2}_Round1"
+            channel_name = f"Seed{seed1}_vs_Seed{seed2}"
+            
             # Create the channel under the specified category
             overwrites = {
                 guild.default_role: discord.PermissionOverwrite(read_messages=False),  # Deny access to @everyone
                 guild.me: discord.PermissionOverwrite(read_messages=True),  # Allow the bot to read messages
             }
+
+            # == perms to view channel ==
             for member_name in members1 + members2:
                 member = discord.utils.get(guild.members, name=member_name)
                 if member:
-                    overwrites[member] = discord.PermissionOverwrite(read_messages=True)  # Allow access to each member
+                    overwrites[member] = discord.PermissionOverwrite(read_messages=True)
+
             producer = discord.utils.get(guild.roles, name="producer")
             if producer:
-                overwrites[producer] = discord.PermissionOverwrite(read_messages=True)  # Allow access to the certain_role
+                overwrites[producer] = discord.PermissionOverwrite(read_messages=True)
+
+            helper = discord.utils.get(guild.roles, name="helper")
+            if helper:
+                overwrites[helper] = discord.PermissionOverwrite(read_messages=True)
+            # ===========================
+
+            team1_mentions = []
+            team2_mentions = []
+
+            # Group every 8 seeds to distribute servers
+            group_range = 8
+            group1 = get_seed_group(seed1, group_range)
+            group2 = get_seed_group(seed2, group_range)
+
+            for member_name in members1:
+                member = discord.utils.get(guild.members, name=member_name)
+                if member:
+                    overwrites[member] = discord.PermissionOverwrite(read_messages=True)  # Allow access to each member
+                    team1_mentions.append(f"<@{member.id}>")
+            for member_name in members2:
+                member = discord.utils.get(guild.members, name=member_name)
+                if member:
+                    overwrites[member] = discord.PermissionOverwrite(read_messages=True)  # Allow access to each member
+                    team2_mentions.append(f"<@{member.id}>")
 
             new_channel = await category.create_text_channel(name=channel_name, overwrites=overwrites)
-            await new_channel.send("This is BO3, single elim, winners type !win\nPick/bans will go as follows:\n1. better seed ban\n2. worse seed ban\n3. better seed pick\n4. worse seed pick\n5. worse seed ban\n6. better seed pick\nType !maps and !server\n(please record a demo)")
+            await new_channel.send(
+                f"MAGGOTS, FIGHT!\n\n"
+                f"- Seed {seed2} {' '.join(team2_mentions)} ban 4 maps.\n"
+                f"- Seed {seed1} {' '.join(team1_mentions)} chooses map.\n"
+                f"- Best of 1 game. Paste the score in chat.\n\n"
 
-            await ctx.send(f"Created channel '{channel_name}' under '{category_name}' category")
-
+                f"Type !maps for the map pool.\n"
+                f"Everyone must record a demo. See <#{1260749245200339026}>.\n"
+                f"Review <#{1172645045887848589}> and <#{1260755247811399760}> before asking questions.\n\n"
+                
+                ":scroll: If you win type !win. If there is a mistake type !lose. :scroll:\n"
+                ":rotating_light: If you troll and type !win when you didn't, you may receive a ban from all things mge.tf :rotating_light:\n\n"
+                
+                f"Servers: See <#{1262433210302992506}>\n\n"
+                
+                + ("- **Dal1:** `connect dal.serveme.tf:27015; password 'iuuhtiu4gwq'`\n"
+                "- **Chi1:** `connect chi3.serveme.tf:27115; password 'a95kabta3AG'`\n"
+                "- **KS1:** `connect ks2.serveme.tf:27015; password 'werenotinkansasanymore'`"
+                if group1 == 1 else
+                "- **Dal2:** `connect dal.serveme.tf:27025; password 'nbaha168ax'`\n"
+                "- **Chi2:** `connect chi3.serveme.tf:27125; password 'q346reakgj'`\n"
+                "- **KS1:** `connect ks2.serveme.tf:27015; password 'werenotinkansasanymore'`"
+                if group1 == 2 else
+                "- **Dal3:** `connect dal.serveme.tf:27035; password 'nmma811aha112'`\n"
+                "- **Chi3:** `connect chi3.serveme.tf:27135; password '9jaoighoioh32'`\n"
+                "- **KS2:** `connect ks2.serveme.tf:27025; password 'were49notinkansasanymore2'`"
+                if group1 == 3 else
+                "- **Dal4:** `connect dal.serveme.tf:27045; password 'blobahjhahe661'`\n"
+                "- **Chi4:** `connect chi3.serveme.tf:27145; password 'kjhabba1251'`\n"
+                "- **KS2:** `connect ks2.serveme.tf:27025; password 'were49notinkansasanymore2'`"
+                if group1 == 4 else
+                ""
+                ) + "\n\n"
+                
+                "Type !EU to display EU servers! NA teams always have server priority."
+            )
         # Reset winner seeds
         round_num = 1
         winner_seeds = []
@@ -442,64 +586,116 @@ def setup(client):
     # After each round is complete, this command will start the next round and 
     # create private channels for the next round matchup
     @client.command()
-    @commands.check(is_mod)
+    @commands.check(perms.is_mod)
     async def next_round(ctx):
         global winner_seeds
         global seed_members_life
         global matchup_lower
         global matchup_upper
         global leftovers
+        global leftover_leftovers
         global round_num
-        global category_name
+        global category_name_lower
+        global category_name_upper
+        global grand_final_names
         
-        guild = ctx.guild
-        round_num += 1
+        category_name_lower = f"lower_round_{round_num}"
+        if(round_num < 6):
+            category_name_upper = f"upper_round_{round_num + 1}"
+        elif(round_num == 10):
+            category_name_lower = "OPEN_Grand_Finals"
+        else:
+            category_name_upper = "OPEN_Grand_Finals"
 
-        # Retrieve the category named "CUP #3"
-        category = discord.utils.get(guild.categories, name=category_name)
-        
-        if not category:
-            # If the category doesn't exist, you can handle it accordingly
-            await ctx.send(f"Category '{category_name}' not found.")
+        guild = ctx.guild
+    
+        category_name_lower = discord.utils.get(guild.categories, name=category_name_lower)
+        category_name_upper = discord.utils.get(guild.categories, name=category_name_upper)
+        if not category_name_upper or not category_name_lower:
+            await ctx.send(f"Category '{category_name_lower}' or '{category_name_upper}' not found.")
             return
         if not winner_seeds:
             await ctx.send("No winners from the previous round to create channels for.")
             return
+        
         # Calculate loser seeds by taking the teams that did not win their matchup. When
         # a team types !win they are put into 'winner_seeds'
-        loser_seeds = [name for name in seed_members_life if name not in winner_seeds]
+        # Extracting the names from winner_seeds and leftovers for comparison
+        round_num += 1
+        print(" === ROUND_NUM ===", round_num)
+        print(.01)
+        winner_names_only = [names for _, names, _ in winner_seeds]
+        print(.02)
+        leftover_names_only = [names for _, names in leftovers]
+        print(.03)
+        leftover_leftovers_names_only = [names for _, names in leftover_leftovers]
+        print(.04)
+        # 'leftover_names' are teams with a lower_round_bye
+        if round_num == 5 or round_num == 6:
+            loser_seeds = [member for member in seed_members_life
+                            if member[1] not in winner_names_only and member[1] not in leftover_names_only]
+            print(.05)
+
+        # 'leftover_leftover_names' are teams with TWO lower_round_byes
+        # 'leftover_leftover_names' then become 'leftover_names'
+        elif round_num == 7:
+            loser_seeds = [member for member in seed_members_life
+                        if member[1] not in winner_names_only and member[1] not in leftover_names_only and member[1] not in leftover_leftovers_names_only and member not in grand_final_names]
+            print(.06)
+        elif round_num == 8 or round_num == 9 or round_num == 10:
+            loser_seeds = [member for member in seed_members_life
+                        if member[1] not in winner_names_only and member[1] not in leftover_names_only and member[1] not in leftover_leftovers_names_only and member not in grand_final_names]
+            print(.07)
+        else:
+            loser_seeds = [name for name in seed_members_life if name not in winner_seeds]
+            print(.08)
+
+        # print("=== LEFTOVER NAMES === ", leftover_names_only)
+        # print("=== WINNER SEEDS === ", winner_seeds)
+        # print("=== LOSER SEEDS === ", loser_seeds)
+        print(.09)
         subtract_life(seed_members_life, loser_seeds)
+        print(.10)
 
         num_participants = len(seed_members_life)
-        num_rounds = calculate_rounds(num_participants)
+        num_rounds = calculate_rounds(num_participants) + 1
+        print(.11)
         if(double_elim):
             # Split up 'seed_members_life' which stores seeds/members/lifes of each team into 
             # seeds/members for 2 life teams and 1 life teams
+            print(.12)
             two_life_teams, one_life_teams, two_life_seeds, one_life_seeds = categorize_teams(seed_members_life, double_elim)
+            print(.13)
+            print(two_life_teams)
             num_teams_upper = len(two_life_teams)
+            print(num_teams_upper)
+            print(.14)
+            grand_final_names = [names for _, names, _ in two_life_teams]
+            # grand_final_names = [name for sublist in temp_names for name in sublist]
+            print("GF NAMES ", grand_final_names)
             # If it's the first round, arrange seeds lowest to highest for upper bracket
             # Otherwise do specialized seeding based on which round. See 'lower_bracket_next_round'
-            num_splits = int(num_rounds - math.log2(num_teams_upper)) - 1
-            if(num_splits == 0):
+            num_splits = round_num - 1
+            print("===NUM SPLITS=== ", num_splits)
+            print(.15)
+            if(num_splits == 1):
+                print(.16)
                 one_life_seeds, one_life_teams, lower_seeds, matchup_lower = arrange_seeds(one_life_seeds, one_life_teams, num_participants)        
             else:
-                matchup_lower, leftovers = lower_bracket_next_round(matchup_lower, matchup_upper, winner_seeds, num_rounds, num_splits, leftovers)
-            print(1)
+                print(.17)
+                matchup_lower, leftovers, leftover_leftovers = lower_bracket_next_round(matchup_lower, matchup_upper, winner_seeds, num_splits, leftovers, leftover_leftovers)
             # Re-arrange lower bracket based on true seeding. This only needs to be done for the first round of lower bracke
+            print(.18)
             two_life_seeds, two_life_teams, upper_seeds, matchup_upper = arrange_seeds(two_life_seeds, two_life_teams, num_participants)
-            print(2)
-            print(upper_seeds)
-            print(matchup_upper)
-            print(round_num)
-            await create_channels(ctx, guild, category, upper_seeds, matchup_upper, round_num, 1)
-            print(3)
+            # print("=== Two_life_seeds ===", two_life_seeds)
+            # print(" === UPPER SEEDS ===", upper_seeds)
+            # print(" === MATCHUP UPPER ===", matchup_upper)
+            await create_channels(ctx, guild, category_name_upper, upper_seeds, matchup_upper, round_num, 1)
             # Create channels for each matchup
             if(num_splits == 0):
-                print(4)
-                await create_channels(ctx, guild, category, lower_seeds, matchup_lower, round_num, 0)
+                await create_channels(ctx, guild, category_name_lower, lower_seeds, matchup_lower, round_num, 0)
             else:
-                print(5)
-                await create_lower_channels(ctx, guild, category, seed_members_life, matchup_lower, round_num)
+                await create_lower_channels(ctx, guild, category_name_lower, seed_members_life, matchup_lower, round_num)
         # If single ELIM
         else:
             # Split up 'seed_members_life' which stores seeds/members/lifes of each team into seeds and teams 
@@ -509,38 +705,91 @@ def setup(client):
             single_elim_seeds, single_elim_teams, seeds, matchup = arrange_seeds(single_elim_seeds, single_elim_teams, num_participants)
 
             # Create channels for each matchup
-            await create_channels(ctx, guild, category, seeds, matchup, round_num, 1)
+            await create_channels(ctx, guild, category_name_upper, seeds, matchup, round_num, 1)
 
         winner_seeds = []  # Reset winner_seeds for the next round
+        print(.19)
+        await ctx.send("Done")
 
     async def create_channels(ctx, guild, category, seeding, matchups, round_num, if_upper): 
-        print(0.20)
         for i in range(len(seeding)):
             seed1, seed2 = seeding[i]
-            print(0.21)
-            print("Seed Pair: ", seed1, seed2)
             team1, team2 = matchups[2*i][1], matchups[2*i+1][1]
-            print(0.22)
-            print("Members: ", team1, team2)
             significant_players_present = any(member_name in ['userjebus', 'cormiez'] for member_name in team1 + team2)
-            print(0.23)
             if if_upper:
-                channel_name = f"Seed{seed1}_vs_Seed{seed2}_UpperRound{round_num}"
-            else:
-                channel_name = f"Seed{seed1}_vs_Seed{seed2}_LowerRound{round_num - 1}"
+                channel_name = f"Seed{seed1}_vs_Seed{seed2}"
+
             overwrites = {
                 guild.default_role: discord.PermissionOverwrite(read_messages=False),
                 guild.me: discord.PermissionOverwrite(read_messages=True),
             }
-            for member_name in team1 + team2:
+
+            producer = discord.utils.get(guild.roles, name="producer")
+            if producer:
+                overwrites[producer] = discord.PermissionOverwrite(read_messages=True)  # Allow access to the certain_role
+
+            helper = discord.utils.get(guild.roles, name="helper")
+            if helper:
+                overwrites[helper] = discord.PermissionOverwrite(read_messages=True)  # Allow access to the helper role
+
+            team1_mentions = []
+            team2_mentions = []
+
+            group_range = 8
+            group1 = get_seed_group(seed1, group_range)
+            group2 = get_seed_group(seed2, group_range)
+
+            for member_name in team1:
                 member = discord.utils.get(guild.members, name=member_name)
                 if member:
                     overwrites[member] = discord.PermissionOverwrite(read_messages=True)  # Allow access to each member
+                    team1_mentions.append(f"<@{member.id}>")
+
+            for member_name in team2:
+                member = discord.utils.get(guild.members, name=member_name)
+                if member:
+                    overwrites[member] = discord.PermissionOverwrite(read_messages=True)  # Allow access to each member
+                    team2_mentions.append(f"<@{member.id}>")
 
             new_channel = await category.create_text_channel(name=channel_name, overwrites=overwrites)
-            await ctx.send(f"Created channel '{channel_name}' under '{category.name}' category")
+            await new_channel.send(
+                f"MAGGOTS, FIGHT!\n\n"
+                f"- Seed {seed2} {' '.join(team2_mentions)} ban 4 maps.\n"
+                f"- Seed {seed1} {' '.join(team1_mentions)} chooses map.\n"
+                f"- Best of 1 game. Paste the score in chat.\n\n"
 
-            print("Significant players: ", significant_players_present)
+                f"Type !maps for the map pool.\n"
+                f"Everyone must record a demo. See <#{1260749245200339026}>.\n"
+                f"Review <#{1172645045887848589}> and <#{1260755247811399760}> before asking questions.\n\n"
+                
+                ":scroll: If you win type !win. If there is a mistake type !lose. :scroll:\n\n"
+                
+                f"Servers: See <#{1262433210302992506}>\n\n"
+                
+                + ("- **Dal1:** `connect dal.serveme.tf:27015; password 'iuuhtiu4gwq'`\n"
+                "- **Chi1:** `connect chi3.serveme.tf:27115; password 'a95kabta3AG'`\n"
+                "- **KS1:** `connect ks2.serveme.tf:27015; password 'werenotinkansasanymore'`"
+                if group1 == 1 else
+                "- **Dal2:** `connect dal.serveme.tf:27025; password 'nbaha168ax'`\n"
+                "- **Chi2:** `connect chi3.serveme.tf:27125; password 'q346reakgj'`\n"
+                "- **KS1:** `connect ks2.serveme.tf:27015; password 'werenotinkansasanymore'`"
+                if group1 == 2 else
+                "- **Dal3:** `connect dal.serveme.tf:27035; password 'nmma811aha112'`\n"
+                "- **Chi3:** `connect chi3.serveme.tf:27135; password '9jaoighoioh32'`\n"
+                "- **KS2:** `connect ks2.serveme.tf:27025; password 'were49notinkansasanymore2'`"
+                if group1 == 3 else
+                "- **Dal4:** `connect dal.serveme.tf:27045; password 'blobahjhahe661'`\n"
+                "- **Chi4:** `connect chi3.serveme.tf:27145; password 'kjhabba1251'`\n"
+                "- **KS2:** `connect ks2.serveme.tf:27025; password 'were49notinkansasanymore2'`"
+                if group1 == 4 else
+                ""
+                ) + "\n\n"
+                
+                "Type !EU to display EU servers! NA teams always have server priority."
+            )            
+            # await ctx.send(f"Created channel '{channel_name}' under '{category.name}' category")
+
+            # print("Significant players: ", significant_players_present)
             #if significant_players_present:
              #   await new_channel.send("userjebus or cormi")
             #else:
@@ -557,22 +806,80 @@ def setup(client):
                 elif players == team2:
                     seed2 = seed
 
-            channel_name = f"Seed{seed1}_vs_Seed{seed2}_LowerRound{round_num - 1}"
+            channel_name = f"Seed{seed1}_vs_Seed{seed2}"
             overwrites = {
                 guild.default_role: discord.PermissionOverwrite(read_messages=False),
                 guild.me: discord.PermissionOverwrite(read_messages=True),
             }
-            for member_name in team1 + team2:
+
+            producer = discord.utils.get(guild.roles, name="producer")
+            if producer:
+                overwrites[producer] = discord.PermissionOverwrite(read_messages=True)  # Allow access to the certain_role
+
+            helper = discord.utils.get(guild.roles, name="helper")
+            if helper:
+                overwrites[helper] = discord.PermissionOverwrite(read_messages=True)  # Allow access to the helper role
+
+            team1_mentions = []
+            team2_mentions = []
+
+            group_range = 8
+            group1 = get_seed_group(seed1, group_range)
+            group2 = get_seed_group(seed2, group_range)
+
+            for member_name in team1:
                 member = discord.utils.get(guild.members, name=member_name)
                 if member:
                     overwrites[member] = discord.PermissionOverwrite(read_messages=True)  # Allow access to each member
+                    team1_mentions.append(f"<@{member.id}>")
+
+            for member_name in team2:
+                member = discord.utils.get(guild.members, name=member_name)
+                if member:
+                    overwrites[member] = discord.PermissionOverwrite(read_messages=True)  # Allow access to each member
+                    team2_mentions.append(f"<@{member.id}>")
 
             new_channel = await category.create_text_channel(name=channel_name, overwrites=overwrites)
-            await ctx.send(f"Created channel '{channel_name}' under '{category.name}' category")
+            await new_channel.send(
+                f"MAGGOTS, FIGHT!\n\n"
+                f"- Seed {seed2} {' '.join(team2_mentions)} ban 4 maps.\n"
+                f"- Seed {seed1} {' '.join(team1_mentions)} chooses map.\n"
+                f"- Best of 1 game. Paste the score in chat.\n\n"
+
+                f"Type !maps for the map pool.\n"
+                f"Everyone must record a demo. See <#{1260749245200339026}>.\n"
+                f"Review <#{1172645045887848589}> and <#{1260755247811399760}> before asking questions.\n\n"
+
+                ":scroll: If you win type !win. If there is a mistake type !lose. :scroll:\n\n"
+                
+                f"Servers: See <#{1262433210302992506}>\n\n"
+                
+                + ("- **Dal1:** `connect dal.serveme.tf:27015; password 'iuuhtiu4gwq'`\n"
+                "- **Chi1:** `connect chi3.serveme.tf:27115; password 'a95kabta3AG'`\n"
+                "- **KS1:** `connect ks2.serveme.tf:27015; password 'werenotinkansasanymore'`"
+                if group1 == 1 else
+                "- **Dal2:** `connect dal.serveme.tf:27025; password 'nbaha168ax'`\n"
+                "- **Chi2:** `connect chi3.serveme.tf:27125; password 'q346reakgj'`\n"
+                "- **KS1:** `connect ks2.serveme.tf:27015; password 'werenotinkansasanymore'`"
+                if group1 == 2 else
+                "- **Dal3:** `connect dal.serveme.tf:27035; password 'nmma811aha112'`\n"
+                "- **Chi3:** `connect chi3.serveme.tf:27135; password '9jaoighoioh32'`\n"
+                "- **KS2:** `connect ks2.serveme.tf:27025; password 'were49notinkansasanymore2'`"
+                if group1 == 3 else
+                "- **Dal4:** `connect dal.serveme.tf:27045; password 'blobahjhahe661'`\n"
+                "- **Chi4:** `connect chi3.serveme.tf:27145; password 'kjhabba1251'`\n"
+                "- **KS2:** `connect ks2.serveme.tf:27025; password 'were49notinkansasanymore2'`"
+                if group1 == 4 else
+                ""
+                ) + "\n\n"
+                
+                "Type !EU to display EU servers! NA teams always have server priority."
+            )            
+            # await ctx.send(f"Created channel '{channel_name}' under '{category.name}' category")
 
     # This lets a mod add a life back to a team
     @client.command()
-    @commands.check(is_mod)
+    @commands.check(perms.is_mod)
     async def override_add_life(ctx, member: discord.Member):
         global seed_members_life
         # Assuming 'seeds' is a list of tuples (seed_num, names, life)
@@ -584,7 +891,7 @@ def setup(client):
 
     # This lets a mod take away a life from a team
     @client.command()
-    @commands.check(is_mod)
+    @commands.check(perms.is_mod)
     async def override_sub_life(ctx, member: discord.Member):
         global seed_members_life
         # Assuming 'seeds' is a list of tuples (seed_num, names, life)
@@ -600,13 +907,13 @@ def setup(client):
     # This removes all channels starting with 'seed' please be careful not to remove 
     # channels when they are in use or that should be archived!!
     @client.command()
-    @commands.check(is_mod)
+    @commands.check(perms.is_mod)
     async def delete(ctx):
         
         # Iterate through all channels in the guild
         for channel in ctx.guild.channels:
             # Check if the channel name starts with 'seed'
-            if channel.name.startswith('seed'):
+            if channel.name.startswith('should_be_seed'):
                 # Delete the channel
                 await channel.delete()
         
@@ -614,7 +921,7 @@ def setup(client):
 
     # Shuts off bot
     @client.command()
-    @commands.check(is_mod)
+    @commands.check(perms.is_mod)
     async def turnoff(ctx):
         await ctx.send("Turning off... Goodbye!")
         await client.close()
