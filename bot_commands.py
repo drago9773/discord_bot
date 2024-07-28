@@ -296,7 +296,7 @@ def setup(client):
 
     # Adds the users team to the winner teams
     @client.command()
-    @commands.check(is_cup_3)
+    @commands.check(perms.is_cup_4)
     async def win(ctx):
         global winner_seeds
         global seed_members_life
@@ -358,7 +358,7 @@ def setup(client):
 
     # This removes the user's team from the winner teams
     @client.command()
-    @commands.check(is_cup_3)
+    @commands.check(perms.is_cup_4)
     async def lose(ctx):
         global winner_seeds
         
@@ -393,7 +393,7 @@ def setup(client):
 
     # Displays the teams that have won their matchup and waiting for next round
     @client.command()
-    @commands.check(is_cup_3)
+    @commands.check(perms.is_cup_4)
     async def display_winners(ctx):
         global winner_seeds
         
